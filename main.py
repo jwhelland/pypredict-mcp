@@ -122,6 +122,8 @@ def get_transits(norad_id: str, latitude: float, longitude: float, angle_above_h
         List[predict.Transit]: A list of transits for the satellite.
     """
     tle = get_tle(norad_id)
+    if tle.startswith("Error:"):
+        return tle
     qth = (latitude, longitude, 0)
 
     transits = list(
