@@ -1,4 +1,3 @@
-import os
 import time
 from datetime import datetime
 from typing import List
@@ -7,15 +6,13 @@ from urllib.parse import quote_plus
 import httpx
 import predict
 from cachetools import LRUCache, TTLCache, cached
-from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field, NaiveDatetime
 
-from exceptions import APIError, ConfigurationError, NoDataFoundError
+from .config import settings
+from .exceptions import APIError, ConfigurationError, NoDataFoundError
 
 mcp = FastMCP("pypredict-mcp")
-load_dotenv(override=True)
-geocode_api_key = os.getenv("GEOCODE_API_KEY")
 
 class Transit(BaseModel):
     """
@@ -51,7 +48,7 @@ def get_name_from_norad_id(norad_id: str) -> str:
         NoDataFoundError: If no satellite is found for the given NORAD ID.
     """
     response = httpx.get(
-        f"https://celestrak.org/satcat/records.php?CATNR={norad_id}&ACTIVE=true&FORMAT=json"
+        f"{settings.celestrak_satcat_url}?CATNR={norad_id}&ACTIVE=true&FORMAT=json"
     )
     if response.status_code != 200:
         raise APIError(f"Unable to fetch satellite data. Status code: {response.status_code}")
@@ -76,7 +73,7 @@ def get_norad_id_from_name(name: str) -> str:
         NoDataFoundError: If no matching satellite is found.
     """
     response = httpx.get(
-        f"https://celestrak.org/satcat/records.php?NAME={name}&ACTIVE=true&FORMAT=json"
+        f"{settings.celestrak_satcat_url}?NAME={name}&ACTIVE=true&FORMAT=json"
     )
     if response.status_code != 200:
         raise APIError(f"Unable to fetch satellite data. Status code: {response.status_code}")
@@ -109,7 +106,7 @@ def get_tle(norad_id: str) -> str:
     """
 
     response = httpx.get(
-        f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad_id}"
+        f"{settings.celestrak_gp_url}?CATNR={norad_id}"
     )
     if response.status_code != 200:
         raise APIError(f"Unable to fetch TLE for NORAD ID {norad_id}. Status code: {response.status_code}")
@@ -175,12 +172,12 @@ def get_latitude_longitude_from_location_name(location_name: str) -> str:
         NoDataFoundError: If no location data is found.
     """
 
-    if not geocode_api_key:
+    if not settings.geocode_api_key:
         raise ConfigurationError("GEOCODE_API_KEY is not set in the environment variables.")
     
     location_name_encoded = quote_plus(location_name)
     response = httpx.get(
-        f"https://geocode.maps.co/search?q={location_name_encoded}&api_key={geocode_api_key}"
+        f"{settings.geocode_search_url}?q={location_name_encoded}&api_key={settings.geocode_api_key}"
     )
     if response.status_code != 200:
         raise APIError(f"Unable to fetch location data. Status code: {response.status_code}")
@@ -200,6 +197,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # Run the main function
-    # can check it using: npx @modelcontextprotocol/inspector uv run main.py
+    # This script is intended to be run as a module, not directly.
+    # To run the MCP server, use `uv run pypredict_mcp.main` from the root directory.
     main()

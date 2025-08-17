@@ -1,7 +1,7 @@
 import gradio as gr
 from gradio.themes import Glass
 
-from agent import main
+from pypredict_mcp.agent import main
 
 js_func = """
 function refresh() {
@@ -31,4 +31,8 @@ gr.ChatInterface(
         "<br>- What is the norad id for 'NOAA 15'"
         "<br>- What is the satellite name for norad id 25338"
     )
-).launch(inbrowser=True)
+)
+
+if __name__ == "__main__":
+    # To run the app, use `uv run examples/app.py` from the root directory.
+    app.launch(inbrowser=True)

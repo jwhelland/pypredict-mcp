@@ -2,7 +2,7 @@ import pytest
 import httpx
 import time
 from unittest.mock import Mock, MagicMock
-from main import (
+from pypredict_mcp.main import (
     get_name_from_norad_id,
     get_norad_id_from_name,
     get_tle,
@@ -12,7 +12,8 @@ from main import (
 )
 import predict
 from datetime import datetime
-from exceptions import APIError, NoDataFoundError, ConfigurationError
+from pypredict_mcp.exceptions import APIError, NoDataFoundError, ConfigurationError
+from pypredict_mcp.config import settings
 
 
 
@@ -41,7 +42,7 @@ def test_get_name_from_norad_id_success(mocker):
     # Assert
     assert result == "ISS (ZARYA)"
     httpx.get.assert_called_once_with(
-        "https://celestrak.org/satcat/records.php?CATNR=25544&ACTIVE=true&FORMAT=json"
+        f"{settings.celestrak_satcat_url}?CATNR=25544&ACTIVE=true&FORMAT=json"
     )
 
 
@@ -97,7 +98,7 @@ def test_get_norad_id_from_name_success(mocker):
     # Assert
     assert result == "25544"
     httpx.get.assert_called_once_with(
-        "https://celestrak.org/satcat/records.php?NAME=ISS&ACTIVE=true&FORMAT=json"
+        f"{settings.celestrak_satcat_url}?NAME=ISS&ACTIVE=true&FORMAT=json"
     )
 
 
@@ -171,7 +172,7 @@ def test_get_tle_success(mocker):
     # Assert
     assert result == tle_string.replace("\r", "").rstrip()
     httpx.get.assert_called_once_with(
-        "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544"
+        f"{settings.celestrak_gp_url}?CATNR=25544"
     )
 
 
@@ -213,7 +214,7 @@ def test_get_latitude_longitude_from_location_name_success(mocker):
     Test get_latitude_longitude_from_location_name successfully returns lat/lon.
     """
     # Arrange
-    mocker.patch("main.geocode_api_key", "fake_api_key")
+    mocker.patch("pypredict_mcp.main.settings.geocode_api_key", "fake_api_key")
     mock_response = Mock(spec=httpx.Response)
     mock_response.status_code = 200
     mock_response.json.return_value = [{"lat": "38.8951", "lon": "-77.0364"}]
@@ -232,7 +233,7 @@ def test_get_latitude_longitude_from_location_name_no_data(mocker):
 
     """
     # Arrange
-    mocker.patch("main.geocode_api_key", "fake_api_key")
+    mocker.patch("pypredict_mcp.main.settings.geocode_api_key", "fake_api_key")
     mock_response = Mock(spec=httpx.Response)
     mock_response.status_code = 200
     mock_response.json.return_value = []
@@ -250,7 +251,7 @@ def test_get_latitude_longitude_from_location_name_http_error(mocker):
 
     """
     # Arrange
-    mocker.patch("main.geocode_api_key", "fake_api_key")
+    mocker.patch("pypredict_mcp.main.settings.geocode_api_key", "fake_api_key")
     mock_response = Mock(spec=httpx.Response)
     mock_response.status_code = 500
     mocker.patch("httpx.get", return_value=mock_response)
@@ -267,7 +268,7 @@ def test_get_latitude_longitude_from_location_name_no_api_key(mocker):
 
     """
     # Arrange
-    mocker.patch("main.geocode_api_key", None)
+    mocker.patch("pypredict_mcp.main.settings.geocode_api_key", None)
 
     # Act & Assert
     with pytest.raises(ConfigurationError, match="GEOCODE_API_KEY is not set"):
@@ -280,7 +281,7 @@ def test_get_transits_success(mocker):
     Test get_transits successfully returns a list of transits.
     """
     # Arrange
-    mocker.patch("main.get_tle", return_value="fake_tle")
+    mocker.patch("pypredict_mcp.main.get_tle", return_value="fake_tle")
     mock_transit = MagicMock()
     mock_above = MagicMock()
     mock_above.start = time.time()
@@ -303,7 +304,7 @@ def test_get_transits_no_transits_found(mocker):
     Test get_transits handles no transits found.
     """
     # Arrange
-    mocker.patch("main.get_tle", return_value="fake_tle")
+    mocker.patch("pypredict_mcp.main.get_tle", return_value="fake_tle")
     mocker.patch("predict.transits", return_value=[])
 
     # Act
@@ -318,7 +319,7 @@ def test_get_transits_tle_error(mocker):
     Test get_transits propagates an exception from get_tle.
     """
     # Arrange
-    mocker.patch("main.get_tle", side_effect=NoDataFoundError("TLE not found"))
+    mocker.patch("pypredict_mcp.main.get_tle", side_effect=NoDataFoundError("TLE not found"))
 
     # Act & Assert
     with pytest.raises(NoDataFoundError, match="TLE not found"):
@@ -331,7 +332,7 @@ def test_get_transits_filters_short_durations(mocker):
     Test that get_transits filters out transits with zero or negative duration.
     """
     # Arrange
-    mocker.patch("main.get_tle", return_value="fake_tle")
+    mocker.patch("pypredict_mcp.main.get_tle", return_value="fake_tle")
     mock_transit = MagicMock()
     mock_above = MagicMock()
     mock_above.duration.return_value = 0.0
