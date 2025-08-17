@@ -15,6 +15,7 @@ from datetime import datetime
 from exceptions import APIError, NoDataFoundError, ConfigurationError
 
 
+
 @pytest.fixture(autouse=True)
 def clear_caches():
     """Fixture to clear all caches before each test."""
@@ -47,6 +48,7 @@ def test_get_name_from_norad_id_success(mocker):
 def test_get_name_from_norad_id_http_error(mocker):
     """
     Test get_name_from_norad_id raises APIError on HTTP error.
+
     """
     # Arrange
     mock_response = Mock(spec=httpx.Response)
@@ -58,9 +60,11 @@ def test_get_name_from_norad_id_http_error(mocker):
         get_name_from_norad_id("25544")
 
 
+
 def test_get_name_from_norad_id_no_data(mocker):
     """
     Test get_name_from_norad_id raises NoDataFoundError when no data is found.
+
     """
     # Arrange
     mock_response = Mock(spec=httpx.Response)
@@ -71,6 +75,7 @@ def test_get_name_from_norad_id_no_data(mocker):
     # Act & Assert
     with pytest.raises(NoDataFoundError, match="No satellite found for NORAD ID 99999"):
         get_name_from_norad_id("99999")
+
 
 
 def test_get_norad_id_from_name_success(mocker):
@@ -119,6 +124,7 @@ def test_get_norad_id_from_name_multiple_results(mocker):
 def test_get_norad_id_from_name_no_data(mocker):
     """
     Test get_norad_id_from_name raises NoDataFoundError when no data is found.
+
     """
     # Arrange
     mock_response = Mock(spec=httpx.Response)
@@ -131,9 +137,11 @@ def test_get_norad_id_from_name_no_data(mocker):
         get_norad_id_from_name("nonexistent")
 
 
+
 def test_get_norad_id_from_name_http_error(mocker):
     """
     Test get_norad_id_from_name raises APIError on HTTP error.
+
     """
     # Arrange
     mock_response = Mock(spec=httpx.Response)
@@ -143,6 +151,7 @@ def test_get_norad_id_from_name_http_error(mocker):
     # Act & Assert
     with pytest.raises(APIError, match="Unable to fetch satellite data. Status code: 500"):
         get_norad_id_from_name("any")
+
 
 
 def test_get_tle_success(mocker):
@@ -169,6 +178,7 @@ def test_get_tle_success(mocker):
 def test_get_tle_no_data(mocker):
     """
     Test get_tle raises NoDataFoundError when no data is found.
+
     """
     # Arrange
     mock_response = Mock(spec=httpx.Response)
@@ -181,9 +191,11 @@ def test_get_tle_no_data(mocker):
         get_tle("99999")
 
 
+
 def test_get_tle_http_error(mocker):
     """
     Test get_tle raises APIError on HTTP error.
+
     """
     # Arrange
     mock_response = Mock(spec=httpx.Response)
@@ -193,6 +205,7 @@ def test_get_tle_http_error(mocker):
     # Act & Assert
     with pytest.raises(APIError, match="Unable to fetch TLE for NORAD ID 25544. Status code: 500"):
         get_tle("25544")
+
 
 
 def test_get_latitude_longitude_from_location_name_success(mocker):
@@ -216,6 +229,7 @@ def test_get_latitude_longitude_from_location_name_success(mocker):
 def test_get_latitude_longitude_from_location_name_no_data(mocker):
     """
     Test get_latitude_longitude_from_location_name raises NoDataFoundError when no data is found.
+
     """
     # Arrange
     mocker.patch("main.geocode_api_key", "fake_api_key")
@@ -229,9 +243,11 @@ def test_get_latitude_longitude_from_location_name_no_data(mocker):
         get_latitude_longitude_from_location_name("nonexistent")
 
 
+
 def test_get_latitude_longitude_from_location_name_http_error(mocker):
     """
     Test get_latitude_longitude_from_location_name raises APIError on HTTP error.
+
     """
     # Arrange
     mocker.patch("main.geocode_api_key", "fake_api_key")
@@ -244,9 +260,11 @@ def test_get_latitude_longitude_from_location_name_http_error(mocker):
         get_latitude_longitude_from_location_name("any")
 
 
+
 def test_get_latitude_longitude_from_location_name_no_api_key(mocker):
     """
     Test get_latitude_longitude_from_location_name raises ConfigurationError when no API key is set.
+
     """
     # Arrange
     mocker.patch("main.geocode_api_key", None)
@@ -254,6 +272,7 @@ def test_get_latitude_longitude_from_location_name_no_api_key(mocker):
     # Act & Assert
     with pytest.raises(ConfigurationError, match="GEOCODE_API_KEY is not set"):
         get_latitude_longitude_from_location_name("any")
+
 
 
 def test_get_transits_success(mocker):
@@ -304,6 +323,7 @@ def test_get_transits_tle_error(mocker):
     # Act & Assert
     with pytest.raises(NoDataFoundError, match="TLE not found"):
         get_transits("25544", 38.8951, -77.0364)
+
 
 
 def test_get_transits_filters_short_durations(mocker):
