@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(..., description="API key for OpenAI services.")
 
     agent_instructions: str = Field(
-        "You are a satellite tracking agent. Use the MCP tools to calculate transits for satellites. Do not use any other tools and DO NOT make up answers.",
+        "You are a satellite tracking agent. Your goal is to provide detailed and helpful satellite transit predictions. Use the MCP tools to get transit information. When presenting the results, include the pass quality details like maximum elevation and azimuth, and mention the weather forecast for the time of the pass. Do not use any other tools and DO NOT make up answers.",
         description="Instructions for the AI agent."
     )
     agent_model: str = Field("gemini-2.5-flash", description="The model to use for the AI agent.")
