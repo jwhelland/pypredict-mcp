@@ -28,9 +28,34 @@ class Transit(BaseModel):
     duration_seconds: float = Field(
         ..., description="The duration of the transit in seconds."
     )
+    max_elevation: float = Field(
+        ..., description="The maximum elevation of the transit in degrees."
+    )
+    culmination_time: NaiveDatetime = Field(
+        ..., description="The time of maximum elevation in UTC."
+    )
+    start_azimuth: float = Field(
+        ..., description="The azimuth of the satellite at the start of the transit in degrees."
+    )
+    max_elevation_azimuth: float = Field(
+        ..., description="The azimuth of the satellite at maximum elevation in degrees."
+    )
+    end_azimuth: float = Field(
+        ..., description="The azimuth of the satellite at the end of the transit in degrees."
+    )
+    weather_forecast: str | None = Field(
+        default=None, description="The weather forecast for the transit location at the time of the transit."
+    )
+
 
     def __repr__(self):
-        return f"Start: {self.start_time}, End: {self.end_time}, Duration: {self.duration_seconds} seconds"
+        return (
+            f"Start: {self.start_time} ({self.start_azimuth:.1f}°), "
+            f"Max Elevation: {self.max_elevation:.1f}° at {self.culmination_time} ({self.max_elevation_azimuth:.1f}°), "
+            f"End: {self.end_time} ({self.end_azimuth:.1f}°), "
+            f"Duration: {self.duration_seconds} seconds, "
+            f"Weather: {self.weather_forecast}"
+        )
 
 
 @mcp.tool()
@@ -119,6 +144,51 @@ def get_tle(norad_id: str) -> str:
 
 
 @mcp.tool()
+@cached(cache=LRUCache(maxsize=100))
+def get_weather_forecast(latitude: float, longitude: float, time_dt: datetime) -> str:
+    """
+    Get the weather forecast for a given location and time.
+
+    Args:
+        latitude (float): Latitude of the location.
+        longitude (float): Longitude of the location.
+        time_dt (datetime): The time for which to get the forecast.
+
+    Returns:
+        str: The weather forecast summary.
+    """
+    try:
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "hourly": "cloud_cover",
+            "start_date": time_dt.strftime("%Y-%m-%d"),
+            "end_date": time_dt.strftime("%Y-%m-%d"),
+            "timezone": "UTC",
+        }
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        if "hourly" not in data or "time" not in data["hourly"] or "cloud_cover" not in data["hourly"]:
+            return "Weather data not available."
+
+        time_str = time_dt.strftime("%Y-%m-%dT%H:00")
+        try:
+            index = data["hourly"]["time"].index(time_str)
+            cloud_cover = data["hourly"]["cloud_cover"][index]
+            return f"{cloud_cover}% cloud cover"
+        except (ValueError, IndexError):
+            return "Forecast for the specific hour not found."
+
+    except httpx.HTTPStatusError as e:
+        return f"Weather API request failed: {e}"
+    except Exception as e:
+        return f"An error occurred while fetching weather: {e}"
+
+
+@mcp.tool()
 def get_transits(norad_id: str, latitude: float, longitude: float, angle_above_horizon: float = 10) -> List[Transit]:
     """
     Get the transits of a satellite given its NORAD ID and observer's location.
@@ -145,14 +215,29 @@ def get_transits(norad_id: str, latitude: float, longitude: float, angle_above_h
         t = transit.above(angle_above_horizon)
         if t.duration() <= 0.0:
             continue
+
+        peak = t.peak()
         start_time = datetime.fromtimestamp(t.start)
         end_time = datetime.fromtimestamp(t.end)
         duration_seconds = t.duration()
+        max_elevation = peak["elevation"]
+        culmination_time = datetime.fromtimestamp(peak["epoch"])
+        start_azimuth = t._samples[0]["azimuth"]
+        max_elevation_azimuth = peak["azimuth"]
+        end_azimuth = t._samples[-1]["azimuth"]
+        weather_forecast = get_weather_forecast(latitude, longitude, culmination_time)
+
         results.append(
             Transit(
                 start_time=start_time,
                 end_time=end_time,
                 duration_seconds=duration_seconds,
+                max_elevation=max_elevation,
+                culmination_time=culmination_time,
+                start_azimuth=start_azimuth,
+                max_elevation_azimuth=max_elevation_azimuth,
+                end_azimuth=end_azimuth,
+                weather_forecast=weather_forecast,
             )
         )
     return results

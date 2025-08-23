@@ -9,12 +9,21 @@ from pypredict_mcp.main import (
     get_latitude_longitude_from_location_name,
     get_transits,
     Transit,
+    get_weather_forecast,
 )
 import predict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pypredict_mcp.exceptions import APIError, NoDataFoundError, ConfigurationError
 from pypredict_mcp.config import settings
 
+
+
+@pytest.fixture(autouse=True)
+def patch_settings(mocker):
+    """Fixture to patch settings for all tests."""
+    mocker.patch("pypredict_mcp.config.settings.geocode_api_key", "dummy_key")
+    mocker.patch("pypredict_mcp.config.settings.google_api_key", "dummy_key")
+    mocker.patch("pypredict_mcp.config.settings.openai_api_key", "dummy_key")
 
 
 @pytest.fixture(autouse=True)
@@ -333,6 +342,7 @@ def test_get_transits_filters_short_durations(mocker):
     """
     # Arrange
     mocker.patch("pypredict_mcp.main.get_tle", return_value="fake_tle")
+    mocker.patch("pypredict_mcp.main.get_weather_forecast", return_value="10% cloud cover")
     mock_transit = MagicMock()
     mock_above = MagicMock()
     mock_above.duration.return_value = 0.0
@@ -344,3 +354,182 @@ def test_get_transits_filters_short_durations(mocker):
 
     # Assert
     assert len(result) == 0
+
+
+def test_get_transits_populates_new_fields(mocker):
+    """
+    Test get_transits successfully populates the new fields in the Transit object.
+    """
+    # Arrange
+    mocker.patch("pypredict_mcp.main.get_tle", return_value="fake_tle")
+    mocker.patch("pypredict_mcp.main.get_weather_forecast", return_value="10% cloud cover")
+
+    mock_transit = MagicMock()
+    mock_above = MagicMock()
+    mock_above.start = 1672531200 # 2023-01-01 00:00:00
+    mock_above.end = 1672531300
+    mock_above.duration.return_value = 100.0
+    mock_above.peak.return_value = {"elevation": 80.0, "epoch": 1672531250, "azimuth": 180.0}
+    mock_above._samples = [{"azimuth": 90.0}, {"azimuth": 270.0}]
+    mock_transit.above.return_value = mock_above
+    mocker.patch("predict.transits", return_value=[mock_transit])
+
+    # Act
+    result = get_transits("25544", 38.8951, -77.0364)
+
+    # Assert
+    assert len(result) == 1
+    transit_result = result[0]
+    assert isinstance(transit_result, Transit)
+    assert transit_result.duration_seconds == 100.0
+    assert transit_result.max_elevation == 80.0
+    assert transit_result.culmination_time == datetime.fromtimestamp(1672531250)
+    assert transit_result.start_azimuth == 90.0
+    assert transit_result.max_elevation_azimuth == 180.0
+    assert transit_result.end_azimuth == 270.0
+    assert transit_result.weather_forecast == "10% cloud cover"
+
+
+@pytest.mark.integration
+def test_get_weather_forecast_integration():
+    """
+    Test get_weather_forecast makes a real API call and returns a valid forecast.
+    This is an integration test and requires an internet connection.
+    """
+    # Arrange
+    latitude = 52.52
+    longitude = 13.41
+    # Use a time in the near future for the forecast
+    time_dt = datetime.utcnow() + timedelta(days=1)
+
+    # Act
+    result = get_weather_forecast(latitude, longitude, time_dt)
+
+    # Assert
+    assert isinstance(result, str)
+    assert "%" in result
+    assert "cloud cover" in result
+
+
+@pytest.mark.integration
+def test_get_tle_integration():
+    """
+    Test get_tle makes a real API call and returns a valid TLE.
+    This is an integration test and requires an internet connection.
+    """
+    # Arrange
+    norad_id = "25544"  # ISS
+
+    # Act
+    result = get_tle(norad_id)
+
+    # Assert
+    assert isinstance(result, str)
+    assert "1 25544U" in result
+    assert "2 25544 " in result
+
+
+@pytest.mark.integration
+def test_get_name_from_norad_id_integration():
+    """
+    Test get_name_from_norad_id makes a real API call and returns a valid name.
+    This is an integration test and requires an internet connection.
+    """
+    # Arrange
+    norad_id = "25544"  # ISS
+
+    # Act
+    result = get_name_from_norad_id(norad_id)
+
+    # Assert
+    assert isinstance(result, str)
+    assert "ISS (ZARYA)" in result
+
+
+@pytest.mark.integration
+def test_get_norad_id_from_name_integration():
+    """
+    Test get_norad_id_from_name makes a real API call and returns a valid NORAD ID.
+    This is an integration test and requires an internet connection.
+    """
+    # Arrange
+    name = "ISS"
+
+    # Act
+    result = get_norad_id_from_name(name)
+
+    # Assert
+    assert isinstance(result, str)
+    assert "25544" in result
+
+
+def test_get_weather_forecast_http_error(mocker):
+    """
+    Test get_weather_forecast handles HTTP errors gracefully.
+    """
+    # Arrange
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("error", request=Mock(), response=mock_response)
+    mocker.patch("httpx.get", return_value=mock_response)
+
+    # Act
+    result = get_weather_forecast(52.52, 13.41, datetime.utcnow())
+
+    # Assert
+    assert "Weather API request failed" in result
+
+
+def test_get_weather_forecast_missing_hourly_key(mocker):
+    """
+    Test get_weather_forecast handles missing 'hourly' key in response.
+    """
+    # Arrange
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.json.return_value = {}  # Missing 'hourly'
+    mocker.patch("httpx.get", return_value=mock_response)
+
+    # Act
+    result = get_weather_forecast(52.52, 13.41, datetime.utcnow())
+
+    # Assert
+    assert result == "Weather data not available."
+
+
+def test_get_weather_forecast_missing_time_key(mocker):
+    """
+    Test get_weather_forecast handles missing 'time' key in response.
+    """
+    # Arrange
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"hourly": {"cloud_cover": []}}  # Missing 'time'
+    mocker.patch("httpx.get", return_value=mock_response)
+
+    # Act
+    result = get_weather_forecast(52.52, 13.41, datetime.utcnow())
+
+    # Assert
+    assert result == "Weather data not available."
+
+
+def test_get_weather_forecast_hour_not_found(mocker):
+    """
+    Test get_weather_forecast handles when the specific hour is not in the response.
+    """
+    # Arrange
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "hourly": {
+            "time": ["2024-01-01T10:00"],
+            "cloud_cover": [50]
+        }
+    }
+    mocker.patch("httpx.get", return_value=mock_response)
+
+    # Act
+    result = get_weather_forecast(52.52, 13.41, datetime(2024, 1, 1, 12, 0))  # Requesting a different hour
+
+    # Assert
+    assert result == "Forecast for the specific hour not found."
