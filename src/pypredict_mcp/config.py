@@ -18,4 +18,8 @@ class Settings(BaseSettings):
     celestrak_gp_url: str = Field("https://celestrak.org/NORAD/elements/gp.php", description="URL for Celestrak TLE data.")
     geocode_search_url: str = Field("https://geocode.maps.co/search", description="URL for geocoding search.")
 
+    transport: str = Field("stdio", description="The transport to use for the MCP server.")
+    host: str = Field("127.0.0.1", description="The host to bind the MCP server to.")
+    port: int = Field(8000, description="The port to bind the MCP server to.")
+
 settings = Settings()

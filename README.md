@@ -47,13 +47,35 @@ You need Python 3.13.1 or newer.
 You can run the MCP server via:
 
 ```sh
-uv run main.py
+uv run src/pypredict_mcp/main.py
 ```
 
 Or, to inspect with the MCP Inspector:
 
 ```sh
-npx @modelcontextprotocol/inspector uv run main.py
+npx @modelcontextprotocol/inspector uv run src/pypredict_mcp/main.py
+```
+
+### Command-Line Options
+
+You can configure the server's transport method and other settings using command-line options.
+
+- `--transport` or `-t`: The transport to use for the MCP server. Options are `stdio`, `http`, and `sse`. Default is `stdio`.
+- `--host` or `-h`: The host to bind the MCP server to. Default is `127.0.0.1`.
+- `--port` or `-p`: The port to bind the MCP server to. Default is `8000`.
+
+#### Examples
+
+To run the server with the default `stdio` transport:
+
+```bash
+uv run src/pypredict_mcp/main.py
+```
+
+To run the server with the `http` transport on port `8080`:
+
+```bash
+uv run src/pypredict_mcp/main.py -- --transport http --port 8080
 ```
 
 You can run the example agent via cli once you've set your API keys:

@@ -190,13 +190,37 @@ def get_latitude_longitude_from_location_name(location_name: str) -> str:
     longitude = location_data[0]["lon"]
     return f"Latitude: {latitude}, Longitude: {longitude}"
 
-def main():
-    # Initialize and run the server
-    print("Starting MCP server...")
-    mcp.run(transport="stdio")
+import typer
+
+app = typer.Typer()
+
+@app.command()
+def main(
+    transport: str = typer.Option(
+        settings.transport,
+        "--transport",
+        "-t",
+        help="The transport to use for the MCP server.",
+    ),
+    host: str = typer.Option(
+        settings.host,
+        "--host",
+        "-h",
+        help="The host to bind the MCP server to.",
+    ),
+    port: int = typer.Option(
+        settings.port,
+        "--port",
+        "-p",
+        help="The port to bind the MCP server to.",
+    ),
+):
+    """
+    Run the PyPredict MCP server.
+    """
+    print(f"Starting MCP server with {transport} transport...")
+    mcp.run(transport=transport, host=host, port=port)
 
 
 if __name__ == "__main__":
-    # This script is intended to be run as a module, not directly.
-    # To run the MCP server, use `uv run pypredict_mcp.main` from the root directory.
-    main()
+    app()
