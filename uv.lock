@@ -953,6 +953,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pypredict" },
+    { name = "typer" },
 ]
 
 [package.optional-dependencies]
@@ -973,6 +974,7 @@ requires-dist = [
     { name = "pypredict", specifier = ">=1.7.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.2" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
+    { name = "typer", extras = ["all"], specifier = ">=0.12.5" },
 ]
 provides-extras = ["dev"]
 
